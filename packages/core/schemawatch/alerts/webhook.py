@@ -4,6 +4,7 @@ import json
 import logging
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from typing import Any
@@ -32,6 +33,11 @@ class WebhookAlert:
         backoff_seconds: float = 0.5,
         sleep_fn: Callable[[float], None] = time.sleep,
     ) -> None:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                f"Invalid alert webhook URL scheme: {parsed.scheme!r}. Must be http or https."
+            )
         self._url = url
         self._headers = headers or {}
         self._timeout = timeout
@@ -82,7 +88,7 @@ class WebhookAlert:
                     headers=req_headers,
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
                     if 200 <= resp.status < 300:
                         return True
             except Exception as exc:

@@ -245,3 +245,15 @@ def test_fan_out_resilience() -> None:
     dispatcher_1.assert_called_once_with(event)
     dispatcher_2.assert_called_once_with(event)
     dispatcher_3.assert_called_once_with(event)
+
+
+def test_alert_url_scheme_validation() -> None:
+    # Scheme must be http or https; file:// and other schemes must raise ValueError
+    with pytest.raises(ValueError, match="Invalid alert webhook URL scheme"):
+        SlackAlert("file:///etc/passwd")
+
+    with pytest.raises(ValueError, match="Invalid alert webhook URL scheme"):
+        WebhookAlert("ftp://example.com/webhook")
+
+    with pytest.raises(ValueError, match="Invalid alert webhook URL scheme"):
+        WebhookAlert("javascript:alert(1)")
