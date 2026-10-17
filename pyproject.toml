@@ -5,13 +5,15 @@ description = "Monorepo for schemawatch: open-source API contract drift monitor"
 requires-python = ">=3.10"
 dependencies = [
     "schemawatch",
+    "schemawatch-api",
 ]
 
 [tool.uv.workspace]
-members = ["packages/core"]
+members = ["packages/core", "apps/api"]
 
 [tool.uv.sources]
 schemawatch = { workspace = true }
+schemawatch-api = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -30,6 +32,7 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4"]
+ignore = ["B008"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -38,5 +41,6 @@ warn_return_any = true
 warn_unused_configs = true
 
 [tool.pytest.ini_options]
-testpaths = ["packages/core/tests"]
+testpaths = ["packages/core/tests", "apps/api/tests"]
 addopts = "-v"
+asyncio_mode = "auto"

@@ -1,0 +1,1272 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "schemawatch API",
+    "description": "Open-source API contract drift monitor REST API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Service Health Check",
+        "description": "Public health check endpoint (no authentication required).",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Get Public System Configuration",
+        "description": "Get read-only configuration booleans. Never returns tokens, URLs, or secrets.",
+        "operationId": "getConfig",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "tags": [
+          "Statistics"
+        ],
+        "summary": "Get System and Alert Statistics",
+        "description": "Get aggregate system statistics and hourly drift counts for the last 12 hours.",
+        "operationId": "getStats",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/endpoints": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "List Monitored Endpoints",
+        "description": "List all monitored third-party API endpoints with health status and alert counts.",
+        "operationId": "listEndpoints",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor for next page",
+              "title": "Cursor"
+            },
+            "description": "Cursor for next page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_EndpointResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/endpoints/{id}": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Get Endpoint Details",
+        "description": "Get detailed metadata for a single endpoint.",
+        "operationId": "getEndpoint",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/endpoints/{id}/baseline": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Get Endpoint Baseline Schema",
+        "description": "Retrieve the active or specified baseline schema for an endpoint.",
+        "operationId": "getEndpointBaseline",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Specific baseline version to retrieve",
+              "title": "Version"
+            },
+            "description": "Specific baseline version to retrieve"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/endpoints/{id}/accept": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Accept Observed Schema as New Baseline",
+        "description": "Adopt latest observed payload shape as new baseline version and acknowledge all open events.",
+        "operationId": "acceptEndpointBaseline",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "List Drift Events",
+        "description": "Query contract drift events with multi-field filtering and pagination.",
+        "operationId": "listEvents",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by severity: breaking, warning, info",
+              "title": "Severity"
+            },
+            "description": "Filter by severity: breaking, warning, info"
+          },
+          {
+            "name": "vendor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by vendor name",
+              "title": "Vendor"
+            },
+            "description": "Filter by vendor name"
+          },
+          {
+            "name": "endpoint_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by endpoint ID",
+              "title": "Endpoint Id"
+            },
+            "description": "Filter by endpoint ID"
+          },
+          {
+            "name": "acknowledged",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by acknowledgment status",
+              "title": "Acknowledged"
+            },
+            "description": "Filter by acknowledgment status"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter events detected after this timestamp",
+              "title": "Since"
+            },
+            "description": "Filter events detected after this timestamp"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor for next page",
+              "title": "Cursor"
+            },
+            "description": "Cursor for next page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_DriftEventResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/ack": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Acknowledge Drift Event",
+        "description": "Mark a contract drift event as acknowledged.",
+        "operationId": "acknowledgeEvent",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/unack": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Unacknowledge Drift Event",
+        "description": "Reopen an acknowledged contract drift event.",
+        "operationId": "unacknowledgeEvent",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest": {
+      "post": {
+        "tags": [
+          "Ingest"
+        ],
+        "summary": "Ingest Sample Payload",
+        "description": "Ingest third-party API response payload for contract drift monitoring.\n\nEnforces request payload size limits and verifies payload safety.",
+        "operationId": "ingestPayload",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/events/stream": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Real-time Server-Sent Events Stream",
+        "description": "Subscribe to real-time contract drift alerts via SSE.\n\nEmits 'event: drift' on new changes, with keep-alive pings every 15s.",
+        "operationId": "streamEvents",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AcceptResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Operation status ('ok')"
+          },
+          "endpoint_id": {
+            "type": "integer",
+            "title": "Endpoint Id",
+            "description": "Endpoint ID"
+          },
+          "new_baseline_version": {
+            "type": "integer",
+            "title": "New Baseline Version",
+            "description": "New baseline version number"
+          },
+          "events_acknowledged": {
+            "type": "integer",
+            "title": "Events Acknowledged",
+            "description": "Number of open events marked acknowledged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "endpoint_id",
+          "new_baseline_version",
+          "events_acknowledged"
+        ],
+        "title": "AcceptResponse",
+        "description": "Result of accepting an observed shape as the new baseline."
+      },
+      "AckResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Operation status ('ok')"
+          },
+          "event_id": {
+            "type": "integer",
+            "title": "Event Id",
+            "description": "Event ID"
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "title": "Acknowledged",
+            "description": "Current acknowledgment status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "event_id",
+          "acknowledged"
+        ],
+        "title": "AckResponse",
+        "description": "Result of acknowledging or unacknowledging an event."
+      },
+      "BaselineResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Unique baseline ID"
+          },
+          "endpoint_id": {
+            "type": "integer",
+            "title": "Endpoint Id",
+            "description": "Parent endpoint ID"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "Baseline version number"
+          },
+          "schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Schema",
+            "description": "Inferred SchemaNode JSON representation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Timestamp when baseline was adopted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "endpoint_id",
+          "version",
+          "schema",
+          "created_at"
+        ],
+        "title": "BaselineResponse",
+        "description": "Versioned schema baseline for an endpoint."
+      },
+      "ConfigResponse": {
+        "properties": {
+          "slack_configured": {
+            "type": "boolean",
+            "title": "Slack Configured",
+            "description": "Whether Slack alerts are configured"
+          },
+          "webhook_configured": {
+            "type": "boolean",
+            "title": "Webhook Configured",
+            "description": "Whether Webhook alerts are configured"
+          },
+          "dev_mode": {
+            "type": "boolean",
+            "title": "Dev Mode",
+            "description": "Whether developer mode is active"
+          },
+          "min_alert_severity": {
+            "type": "string",
+            "title": "Min Alert Severity",
+            "description": "Minimum severity threshold for alerts"
+          },
+          "learn_samples": {
+            "type": "integer",
+            "title": "Learn Samples",
+            "description": "Required samples to establish baseline"
+          },
+          "sample_rate": {
+            "type": "number",
+            "title": "Sample Rate",
+            "description": "Configured sampling rate"
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "title": "Cooldown Seconds",
+            "description": "Cooldown deduplication window in seconds"
+          },
+          "database_type": {
+            "type": "string",
+            "title": "Database Type",
+            "description": "Storage engine type ('sqlite' or 'postgres')"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slack_configured",
+          "webhook_configured",
+          "dev_mode",
+          "min_alert_severity",
+          "learn_samples",
+          "sample_rate",
+          "cooldown_seconds",
+          "database_type"
+        ],
+        "title": "ConfigResponse",
+        "description": "Public read-only server configuration. NEVER exposes tokens or URLs."
+      },
+      "DriftEventResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Unique drift event ID"
+          },
+          "endpoint_id": {
+            "type": "integer",
+            "title": "Endpoint Id",
+            "description": "Associated endpoint ID"
+          },
+          "vendor": {
+            "type": "string",
+            "title": "Vendor",
+            "description": "Vendor identifier"
+          },
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint",
+            "description": "Endpoint path"
+          },
+          "field_path": {
+            "type": "string",
+            "title": "Field Path",
+            "description": "JSONPath of drifting field"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Change kind (e.g. 'type_changed', 'field_missing')"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity",
+            "description": "Severity level ('breaking', 'warning', 'info')"
+          },
+          "was_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Was Value",
+            "description": "Previous baseline type or representation"
+          },
+          "now_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Now Value",
+            "description": "Observed type or representation"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "Human-readable description of drift"
+          },
+          "observed_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Schema",
+            "description": "Observed SchemaNode structure at time of drift"
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "title": "Acknowledged",
+            "description": "Whether this drift event has been acknowledged"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At",
+            "description": "Timestamp of acknowledgment"
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Detected At",
+            "description": "Detection timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "endpoint_id",
+          "vendor",
+          "endpoint",
+          "field_path",
+          "kind",
+          "severity",
+          "acknowledged",
+          "detected_at"
+        ],
+        "title": "DriftEventResponse",
+        "description": "Recorded API contract drift event change."
+      },
+      "EndpointResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Unique endpoint ID"
+          },
+          "vendor": {
+            "type": "string",
+            "title": "Vendor",
+            "description": "Third-party vendor identifier"
+          },
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint",
+            "description": "Normalized API endpoint path"
+          },
+          "sample_count": {
+            "type": "integer",
+            "title": "Sample Count",
+            "description": "Total learned/observed samples"
+          },
+          "current_baseline_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Baseline Version",
+            "description": "Active baseline schema version, or null if still learning"
+          },
+          "open_alerts_count": {
+            "type": "integer",
+            "title": "Open Alerts Count",
+            "description": "Number of currently unacknowledged drift alerts"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Endpoint status: 'learning', 'healthy', 'warning', or 'broken'"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "Last update timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vendor",
+          "endpoint",
+          "sample_count",
+          "open_alerts_count",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EndpointResponse",
+        "description": "Monitored API endpoint metadata and health status."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Service health status ('ok')"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Schemawatch API version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "description": "Health check response."
+      },
+      "HourlyStat": {
+        "properties": {
+          "hour": {
+            "type": "string",
+            "title": "Hour",
+            "description": "ISO 8601 hourly timestamp"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Total alerts in this hour"
+          },
+          "breaking": {
+            "type": "integer",
+            "title": "Breaking",
+            "description": "Breaking alerts in this hour"
+          },
+          "warning": {
+            "type": "integer",
+            "title": "Warning",
+            "description": "Warning alerts in this hour"
+          },
+          "info": {
+            "type": "integer",
+            "title": "Info",
+            "description": "Info alerts in this hour"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hour",
+          "count",
+          "breaking",
+          "warning",
+          "info"
+        ],
+        "title": "HourlyStat",
+        "description": "Aggregated drift alert counts for a single hourly window."
+      },
+      "IngestResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Processing status ('ok')"
+          },
+          "observed": {
+            "type": "boolean",
+            "title": "Observed",
+            "description": "True if payload was observed, False if sampled out"
+          },
+          "changes_detected": {
+            "type": "integer",
+            "title": "Changes Detected",
+            "description": "Number of new active drift changes detected"
+          },
+          "event_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Event Ids",
+            "description": "IDs of newly persisted events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "observed",
+          "changes_detected"
+        ],
+        "title": "IngestResponse",
+        "description": "Result of payload ingestion and observation."
+      },
+      "PaginatedResponse_DriftEventResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DriftEventResponse"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "List of items for current page"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Cursor token for next page, or null if end"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "Total matching items if computed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PaginatedResponse[DriftEventResponse]"
+      },
+      "PaginatedResponse_EndpointResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EndpointResponse"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "List of items for current page"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Cursor token for next page, or null if end"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "Total matching items if computed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PaginatedResponse[EndpointResponse]"
+      },
+      "StatsResponse": {
+        "properties": {
+          "total_endpoints": {
+            "type": "integer",
+            "title": "Total Endpoints",
+            "description": "Total monitored endpoints"
+          },
+          "active_alerts_count": {
+            "type": "integer",
+            "title": "Active Alerts Count",
+            "description": "Total unacknowledged drift alerts"
+          },
+          "breaking_alerts_count": {
+            "type": "integer",
+            "title": "Breaking Alerts Count",
+            "description": "Total active breaking alerts"
+          },
+          "warning_alerts_count": {
+            "type": "integer",
+            "title": "Warning Alerts Count",
+            "description": "Total active warning alerts"
+          },
+          "info_alerts_count": {
+            "type": "integer",
+            "title": "Info Alerts Count",
+            "description": "Total active info alerts"
+          },
+          "alerts_per_hour": {
+            "items": {
+              "$ref": "#/components/schemas/HourlyStat"
+            },
+            "type": "array",
+            "title": "Alerts Per Hour",
+            "description": "Hourly alert distribution for the last 12 hours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_endpoints",
+          "active_alerts_count",
+          "breaking_alerts_count",
+          "warning_alerts_count",
+          "info_alerts_count",
+          "alerts_per_hour"
+        ],
+        "title": "StatsResponse",
+        "description": "Global system health and alert frequency statistics."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
