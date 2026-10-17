@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from schemawatch.diff import Change
+from schemawatch.diff import DriftEvent
 from schemawatch.watchdog import Watchdog
 
 
@@ -35,7 +35,7 @@ def test_watchdog_learning_phase() -> None:
 
 
 def test_watchdog_drift_detection_and_cooldown() -> None:
-    alerts: list[Change] = []
+    alerts: list[DriftEvent] = []
     watchdog = Watchdog(
         learning_threshold=2,
         sample_rate=1.0,
@@ -60,7 +60,10 @@ def test_watchdog_drift_detection_and_cooldown() -> None:
     assert drift_changes[0].path == "$.status"
     assert drift_changes[0].severity == "breaking"
     assert len(alerts) == 1
-    assert alerts[0].path == "$.status"
+    assert alerts[0].vendor == "payco"
+    assert alerts[0].endpoint == "/v1/charges"
+    assert len(alerts[0].changes) == 1
+    assert alerts[0].changes[0].path == "$.status"
 
     # Post-learning: immediate duplicate drift payload (should be suppressed by cooldown)
     dup_changes = watchdog.observe(vendor, endpoint, {"id": 5, "status": 500})
@@ -102,7 +105,7 @@ def test_watchdog_fail_open_on_bad_payload() -> None:
 
 
 def test_watchdog_on_alert_exception_swallowed() -> None:
-    def exploding_alert_callback(change: Change) -> None:
+    def exploding_alert_callback(event: DriftEvent) -> None:
         raise ValueError("Alert webhook failed to send!")
 
     watchdog = Watchdog(learning_threshold=1, on_alert=exploding_alert_callback)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from typing import Any
 
 from schemawatch.infer import SchemaNode
@@ -9,6 +10,9 @@ from schemawatch.severity import (
     KIND_FIELD_ADDED,
     KIND_FIELD_MISSING,
     KIND_TYPE_CHANGED,
+    SEVERITY_BREAKING,
+    SEVERITY_INFO,
+    SEVERITY_WARNING,
     calculate_severity,
 )
 
@@ -46,6 +50,41 @@ class Change:
         }
 
 
+@dataclass(frozen=True)
+class DriftEvent:
+    """Represents an API contract drift observation event for a vendor endpoint."""
+
+    vendor: str
+    endpoint: str
+    changes: tuple[Change, ...]
+    detected_at: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.changes, tuple):
+            object.__setattr__(self, "changes", tuple(self.changes))
+
+    @property
+    def highest_severity(self) -> str:
+        """Return the highest severity among all changes in the event."""
+        for ch in self.changes:
+            if ch.severity == SEVERITY_BREAKING:
+                return SEVERITY_BREAKING
+        for ch in self.changes:
+            if ch.severity == SEVERITY_WARNING:
+                return SEVERITY_WARNING
+        return SEVERITY_INFO
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert DriftEvent to dictionary."""
+        return {
+            "vendor": self.vendor,
+            "endpoint": self.endpoint,
+            "highest_severity": self.highest_severity,
+            "detected_at": self.detected_at,
+            "changes": [c.to_dict() for c in self.changes],
+        }
+
+
 def _type_allowed(observed_type: str, baseline_types: set[str]) -> bool:
     """Check if an observed type is compatible with baseline types.
 
@@ -79,7 +118,7 @@ def diff(baseline: SchemaNode, observed: SchemaNode, path: str = "$") -> list[Ch
                 severity=calculate_severity(KIND_BECAME_NULLABLE),
                 was=was_types,
                 now="null",
-                detail=f"{path} became nullable",
+                detail="became nullable",
             )
         )
 
@@ -100,7 +139,7 @@ def diff(baseline: SchemaNode, observed: SchemaNode, path: str = "$") -> list[Ch
                     severity=calculate_severity(KIND_TYPE_CHANGED),
                     was=was_str,
                     now=now_str,
-                    detail=f"{path}: {was_str} -> {now_str}",
+                    detail=f"{was_str} -> {now_str}",
                 )
             )
             # Crucial rule from System Design:
@@ -110,54 +149,89 @@ def diff(baseline: SchemaNode, observed: SchemaNode, path: str = "$") -> list[Ch
 
     # 3. Object property comparisons
     if "object" in baseline.types and "object" in observed.types:
-        # Check for missing properties
-        for prop in baseline.properties:
-            if prop not in observed.properties:
+        if "*" in baseline.properties:
+            # Baseline is a wildcard map: match observed properties against wildcard schema
+            for prop in observed.properties:
+                child_path = f"{path}.*"
+                changes.extend(
+                    diff(
+                        baseline.properties["*"],
+                        observed.properties[prop],
+                        path=child_path,
+                    )
+                )
+        elif "*" in observed.properties:
+            # Baseline was normal object, but observed became a wildcard map
+            for prop in baseline.properties:
                 prop_path = f"{path}.{prop}"
                 is_req = prop in baseline.required
-                severity = calculate_severity(KIND_FIELD_MISSING, is_required=is_req)
-                detail = (
-                    f"Required field {prop_path} is missing"
-                    if is_req
-                    else f"Optional field {prop_path} is missing"
-                )
                 changes.append(
                     Change(
                         path=prop_path,
                         kind=KIND_FIELD_MISSING,
-                        severity=severity,
+                        severity=calculate_severity(KIND_FIELD_MISSING, is_required=is_req),
                         was="present",
                         now="missing",
-                        detail=detail,
+                        detail=(
+                            "required field is missing" if is_req else "optional field is missing"
+                        ),
                     )
                 )
+            changes.append(
+                Change(
+                    path=f"{path}.*",
+                    kind=KIND_FIELD_ADDED,
+                    severity=calculate_severity(KIND_FIELD_ADDED),
+                    was="absent",
+                    now="present",
+                    detail="new field added",
+                )
+            )
+        else:
+            # Normal object comparisons
+            for prop in baseline.properties:
+                if prop not in observed.properties:
+                    prop_path = f"{path}.{prop}"
+                    is_req = prop in baseline.required
+                    severity = calculate_severity(KIND_FIELD_MISSING, is_required=is_req)
+                    detail = "required field is missing" if is_req else "optional field is missing"
+                    changes.append(
+                        Change(
+                            path=prop_path,
+                            kind=KIND_FIELD_MISSING,
+                            severity=severity,
+                            was="present",
+                            now="missing",
+                            detail=detail,
+                        )
+                    )
 
-        # Check for added properties
-        for prop in observed.properties:
-            if prop not in baseline.properties:
-                prop_path = f"{path}.{prop}"
-                changes.append(
-                    Change(
-                        path=prop_path,
-                        kind=KIND_FIELD_ADDED,
-                        severity=calculate_severity(KIND_FIELD_ADDED),
-                        was="absent",
-                        now="present",
-                        detail=f"New field {prop_path} added",
+            # Check for added properties
+            for prop in observed.properties:
+                if prop not in baseline.properties:
+                    prop_path = f"{path}.{prop}"
+                    changes.append(
+                        Change(
+                            path=prop_path,
+                            kind=KIND_FIELD_ADDED,
+                            severity=calculate_severity(KIND_FIELD_ADDED),
+                            was="absent",
+                            now="present",
+                            detail="new field added",
+                        )
                     )
-                )
 
-        # Recurse for shared properties
-        for prop in baseline.properties:
-            if prop in observed.properties:
-                prop_path = f"{path}.{prop}"
-                changes.extend(
-                    diff(
-                        baseline.properties[prop],
-                        observed.properties[prop],
-                        path=prop_path,
+            # Recurse for shared properties
+            for prop in baseline.properties:
+                if prop in observed.properties:
+                    prop_path = f"{path}.{prop}"
+                    changes.extend(
+                        diff(
+                            baseline.properties[prop],
+                            observed.properties[prop],
+                            path=prop_path,
+                        )
                     )
-                )
 
     # 4. Array item comparisons
     if "array" in baseline.types and "array" in observed.types:

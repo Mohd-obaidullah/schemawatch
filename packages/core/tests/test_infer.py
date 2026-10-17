@@ -108,3 +108,12 @@ def test_schema_node_eq_with_non_node() -> None:
 def test_infer_schema_unknown_object_fallback() -> None:
     node = infer_schema(object())
     assert node.types == {"string"}
+
+
+def test_infer_schema_large_object_treated_as_map() -> None:
+    large_dict = {f"k_{i}": i * 10 for i in range(60)}
+    node = infer_schema(large_dict)
+    assert node.types == {"object"}
+    assert "*" in node.properties
+    assert node.properties["*"].types == {"integer"}
+    assert node.required == {"*"}

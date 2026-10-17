@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from schemawatch.redact import DEFAULT_MAX_ARRAY_LENGTH
+from schemawatch.redact import (
+    DEFAULT_MAX_ARRAY_LENGTH,
+    DEFAULT_MAX_OBJECT_KEYS,
+    is_dynamic_map,
+)
 
 
 @dataclass
@@ -51,7 +55,12 @@ class SchemaNode:
         )
 
 
-def infer_schema(value: Any, *, max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH) -> SchemaNode:
+def infer_schema(
+    value: Any,
+    *,
+    max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH,
+    max_object_keys: int = DEFAULT_MAX_OBJECT_KEYS,
+) -> SchemaNode:
     """Infer the schema shape from a Python/JSON value.
 
     Types recognized: null, boolean, integer, number, string, array, object.
@@ -60,6 +69,7 @@ def infer_schema(value: Any, *, max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH
     Args:
         value: The JSON value to infer a schema for.
         max_array_length: Maximum number of array elements to inspect.
+        max_object_keys: Maximum number of object keys before treating as a wildcard map.
 
     Returns:
         SchemaNode describing the type and nested structure.
@@ -77,20 +87,51 @@ def infer_schema(value: Any, *, max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH
     if isinstance(value, str):
         return SchemaNode(types={"string"})
     if isinstance(value, dict):
+        if is_dynamic_map(value.keys(), max_keys=max_object_keys):
+            merged_val: SchemaNode | None = None
+            for v in value.values():
+                val_node = infer_schema(
+                    v,
+                    max_array_length=max_array_length,
+                    max_object_keys=max_object_keys,
+                )
+                merged_val = merge(merged_val, val_node) if merged_val is not None else val_node
+            fallback = SchemaNode(types={"null"})
+            item_node = merged_val if merged_val is not None else fallback
+            return SchemaNode(
+                types={"object"},
+                properties={"*": item_node},
+                required={"*"},
+            )
         properties: dict[str, SchemaNode] = {}
         required: set[str] = set()
         for k, v in value.items():
             k_str = str(k)
-            properties[k_str] = infer_schema(v, max_array_length=max_array_length)
+            properties[k_str] = infer_schema(
+                v,
+                max_array_length=max_array_length,
+                max_object_keys=max_object_keys,
+            )
             required.add(k_str)
         return SchemaNode(types={"object"}, properties=properties, required=required)
     if isinstance(value, (list, tuple)):
         truncated = value[:max_array_length]
         if not truncated:
             return SchemaNode(types={"array"}, items=None)
-        item_schema = infer_schema(truncated[0], max_array_length=max_array_length)
+        item_schema = infer_schema(
+            truncated[0],
+            max_array_length=max_array_length,
+            max_object_keys=max_object_keys,
+        )
         for elem in truncated[1:]:
-            item_schema = merge(item_schema, infer_schema(elem, max_array_length=max_array_length))
+            item_schema = merge(
+                item_schema,
+                infer_schema(
+                    elem,
+                    max_array_length=max_array_length,
+                    max_object_keys=max_object_keys,
+                ),
+            )
         return SchemaNode(types={"array"}, items=item_schema)
 
     return SchemaNode(types={"string"})

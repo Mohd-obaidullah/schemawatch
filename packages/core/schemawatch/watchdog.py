@@ -5,10 +5,11 @@ import random
 from collections.abc import Callable
 from typing import Any
 
-from schemawatch.diff import Change, diff
+from schemawatch.diff import Change, DriftEvent, diff
 from schemawatch.infer import infer_schema, merge
 from schemawatch.redact import (
     DEFAULT_MAX_ARRAY_LENGTH,
+    DEFAULT_MAX_OBJECT_KEYS,
     DEFAULT_MAX_PAYLOAD_BYTES,
     InvalidPayloadError,
     PayloadTooLargeError,
@@ -30,7 +31,8 @@ class Watchdog:
         cooldown_seconds: int = 3600,
         max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES,
         max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH,
-        on_alert: Callable[[Change], None] | None = None,
+        max_object_keys: int = DEFAULT_MAX_OBJECT_KEYS,
+        on_alert: Callable[[DriftEvent], None] | None = None,
     ) -> None:
         self.store: Store = store if store is not None else MemoryStore()
         self.learning_threshold = learning_threshold
@@ -38,6 +40,7 @@ class Watchdog:
         self.cooldown_seconds = cooldown_seconds
         self.max_payload_bytes = max_payload_bytes
         self.max_array_length = max_array_length
+        self.max_object_keys = max_object_keys
         self.on_alert = on_alert
 
     def observe(self, vendor: str, endpoint: str, payload: Any) -> list[Change]:
@@ -72,6 +75,7 @@ class Watchdog:
                 payload,
                 max_payload_bytes=self.max_payload_bytes,
                 max_array_length=self.max_array_length,
+                max_object_keys=self.max_object_keys,
             )
         except (PayloadTooLargeError, InvalidPayloadError) as exc:
             logger.warning(
@@ -88,6 +92,7 @@ class Watchdog:
             observed_schema = infer_schema(
                 clean_payload,
                 max_array_length=self.max_array_length,
+                max_object_keys=self.max_object_keys,
             )
             baseline = self.store.get_baseline(vendor, endpoint)
             new_baseline = (
@@ -105,6 +110,7 @@ class Watchdog:
         observed_schema = infer_schema(
             clean_payload,
             max_array_length=self.max_array_length,
+            max_object_keys=self.max_object_keys,
         )
         baseline = self.store.get_baseline(vendor, endpoint)
         if baseline is None:
@@ -127,10 +133,16 @@ class Watchdog:
             )
             if is_new:
                 active_changes.append(change)
-                if self.on_alert is not None:
-                    try:
-                        self.on_alert(change)
-                    except Exception as alert_exc:
-                        logger.exception("schemawatch: on_alert error: %s", alert_exc)
+
+        if active_changes and self.on_alert is not None:
+            event = DriftEvent(
+                vendor=vendor,
+                endpoint=endpoint,
+                changes=tuple(active_changes),
+            )
+            try:
+                self.on_alert(event)
+            except Exception as alert_exc:
+                logger.exception("schemawatch: on_alert error: %s", alert_exc)
 
         return active_changes

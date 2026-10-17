@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from schemawatch.diff import Change, diff
-from schemawatch.infer import infer_schema, merge
+from schemawatch.infer import SchemaNode, infer_schema, merge
 from schemawatch.severity import (
     KIND_BECAME_NULLABLE,
     KIND_FIELD_ADDED,
@@ -9,6 +9,7 @@ from schemawatch.severity import (
     KIND_TYPE_CHANGED,
     SEVERITY_BREAKING,
     SEVERITY_INFO,
+    SEVERITY_WARNING,
 )
 
 
@@ -143,3 +144,47 @@ def test_change_to_dict_and_message() -> None:
     assert d["field"] == "$.user_id"
     assert d["kind"] == KIND_TYPE_CHANGED
     assert ch.message == "type mismatch"
+
+
+def test_diff_object_transition_to_map() -> None:
+    # Baseline was normal object
+    baseline = infer_schema({"id": 1, "name": "foo"})
+    # Observed became a map
+    observed = SchemaNode(types={"object"}, properties={"*": SchemaNode(types={"string"})})
+
+    changes = diff(baseline, observed)
+    assert any(c.kind == "field_missing" and c.field == "$.id" for c in changes)
+    assert any(c.kind == "field_added" and c.field == "$.*" for c in changes)
+
+
+def test_drift_event_to_dict_and_highest_severity() -> None:
+    from schemawatch.diff import DriftEvent
+
+    ch_info = Change(path="$.a", kind=KIND_FIELD_ADDED, severity=SEVERITY_INFO)
+    ch_warn = Change(path="$.b", kind="enum_changed", severity=SEVERITY_WARNING)
+    ch_break = Change(path="$.c", kind=KIND_TYPE_CHANGED, severity=SEVERITY_BREAKING)
+
+    # Info only
+    event_info = DriftEvent(vendor="v", endpoint="/e", changes=(ch_info,))
+    assert event_info.highest_severity == SEVERITY_INFO
+
+    # Warning + Info -> highest is warning
+    event_warn = DriftEvent(vendor="v", endpoint="/e", changes=(ch_info, ch_warn))
+    assert isinstance(event_warn.changes, tuple)
+    assert event_warn.highest_severity == SEVERITY_WARNING
+
+    # Breaking + Warning + Info -> highest is breaking
+    event_break = DriftEvent(
+        vendor="payco",
+        endpoint="/v1",
+        changes=(ch_info, ch_warn, ch_break),
+        detected_at=123456789.0,
+    )
+    assert event_break.highest_severity == SEVERITY_BREAKING
+
+    d = event_break.to_dict()
+    assert d["vendor"] == "payco"
+    assert d["endpoint"] == "/v1"
+    assert d["highest_severity"] == "breaking"
+    assert d["detected_at"] == 123456789.0
+    assert len(d["changes"]) == 3

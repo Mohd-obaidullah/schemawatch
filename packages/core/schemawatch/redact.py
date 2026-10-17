@@ -1,10 +1,46 @@
 from __future__ import annotations
 
 import json
+import re
+from collections.abc import Iterable
 from typing import Any
 
 DEFAULT_MAX_PAYLOAD_BYTES: int = 1_000_000  # 1 MB
 DEFAULT_MAX_ARRAY_LENGTH: int = 10
+DEFAULT_MAX_OBJECT_KEYS: int = 50
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+_LONG_DIGIT_RE = re.compile(r"^\d{8,}$")
+_LONG_HEX_RE = re.compile(r"^[0-9a-fA-F]{16,}$")
+
+
+def is_dynamic_key(key: Any) -> bool:
+    """Check if key looks like an email, UUID, long digit string, or long hex string."""
+    k = str(key).strip()
+    return bool(
+        _EMAIL_RE.match(k) or _UUID_RE.match(k) or _LONG_DIGIT_RE.match(k) or _LONG_HEX_RE.match(k)
+    )
+
+
+def is_dynamic_map(keys: Iterable[Any], max_keys: int = DEFAULT_MAX_OBJECT_KEYS) -> bool:
+    """Determine whether an object should be treated as a dynamic map (wildcard '*').
+
+    Criteria according to AGENTS.md / PRD:
+    - More than max_keys (default 50) distinct keys; OR
+    - >= 50% of its keys (minimum 3 matching keys) look like emails, UUIDs,
+      long digit strings, or long hex strings.
+    """
+    key_list = [str(k) for k in keys]
+    total = len(key_list)
+    if total > max_keys:
+        return True
+    if total < 3:
+        return False
+    dynamic_count = sum(1 for k in key_list if is_dynamic_key(k))
+    return dynamic_count >= 3 and (dynamic_count / total) >= 0.5
 
 
 class PayloadTooLargeError(ValueError):
@@ -20,6 +56,7 @@ def redact(
     *,
     max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES,
     max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH,
+    max_object_keys: int = DEFAULT_MAX_OBJECT_KEYS,
 ) -> Any:
     """Sanitize a payload by replacing raw values with type-preserving placeholders.
 
@@ -88,10 +125,19 @@ def redact(
         except (TypeError, OverflowError) as exc:
             raise InvalidPayloadError(f"Payload is not JSON-serializable: {exc}") from exc
 
-    return _redact_value(payload, max_array_length=max_array_length)
+    return _redact_value(
+        payload,
+        max_array_length=max_array_length,
+        max_object_keys=max_object_keys,
+    )
 
 
-def _redact_value(value: Any, *, max_array_length: int) -> Any:
+def _redact_value(
+    value: Any,
+    *,
+    max_array_length: int,
+    max_object_keys: int = DEFAULT_MAX_OBJECT_KEYS,
+) -> Any:
     """Recursively replace values with type-preserving zero/empty representations."""
     if value is None:
         return None
@@ -105,11 +151,38 @@ def _redact_value(value: Any, *, max_array_length: int) -> Any:
     if isinstance(value, str):
         return ""
     if isinstance(value, dict):
+        if is_dynamic_map(value.keys(), max_keys=max_object_keys):
+            # Privacy hardening: objects with dynamic keys or > max_object_keys are treated as maps
+            # (keys replaced by "*")
+            merged_val: Any = None
+            for v in value.values():
+                redacted_v = _redact_value(
+                    v,
+                    max_array_length=max_array_length,
+                    max_object_keys=max_object_keys,
+                )
+                if merged_val is None:
+                    merged_val = redacted_v
+                elif isinstance(merged_val, dict) and isinstance(redacted_v, dict):
+                    merged_val = {**merged_val, **redacted_v}
+            return {"*": merged_val if merged_val is not None else {}}
         return {
-            str(k): _redact_value(v, max_array_length=max_array_length) for k, v in value.items()
+            str(k): _redact_value(
+                v,
+                max_array_length=max_array_length,
+                max_object_keys=max_object_keys,
+            )
+            for k, v in value.items()
         }
     if isinstance(value, (list, tuple)):
         truncated = value[:max_array_length]
-        return [_redact_value(item, max_array_length=max_array_length) for item in truncated]
+        return [
+            _redact_value(
+                item,
+                max_array_length=max_array_length,
+                max_object_keys=max_object_keys,
+            )
+            for item in truncated
+        ]
 
     return None
