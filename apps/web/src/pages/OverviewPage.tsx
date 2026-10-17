@@ -192,7 +192,7 @@ export function OverviewPage(): React.ReactElement {
             <Skeleton className="h-[220px] w-full" />
           ) : chartData.length > 0 ? (
             <div className="h-[220px] w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={220} minHeight={220}>
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
                   <XAxis dataKey="hour" fontSize={10} tickLine={false} axisLine={false} />

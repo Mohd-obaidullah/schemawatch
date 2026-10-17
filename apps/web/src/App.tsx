@@ -5,11 +5,21 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { Navbar } from "@/components/layout/Navbar";
-import { OverviewPage } from "@/pages/OverviewPage";
-import { AlertsPage } from "@/pages/AlertsPage";
-import { EndpointDetailPage } from "@/pages/EndpointDetailPage";
-import { SettingsPage } from "@/pages/SettingsPage";
-import { TokenPage } from "@/pages/TokenPage";
+const OverviewPage = React.lazy(() =>
+  import("@/pages/OverviewPage").then((m) => ({ default: m.OverviewPage }))
+);
+const AlertsPage = React.lazy(() =>
+  import("@/pages/AlertsPage").then((m) => ({ default: m.AlertsPage }))
+);
+const EndpointDetailPage = React.lazy(() =>
+  import("@/pages/EndpointDetailPage").then((m) => ({ default: m.EndpointDetailPage }))
+);
+const SettingsPage = React.lazy(() =>
+  import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage }))
+);
+const TokenPage = React.lazy(() =>
+  import("@/pages/TokenPage").then((m) => ({ default: m.TokenPage }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,6 +29,14 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function RouteLoading(): React.ReactElement {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactElement }): React.ReactElement {
   const { isAuthenticated, isLoading } = useAuth();
@@ -44,50 +62,52 @@ function AppLayout(): React.ReactElement {
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
       <Navbar />
       <main className="flex-1 container py-6 max-w-7xl">
-        <Routes>
-          <Route path="/token" element={<TokenPage />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <OverviewPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/overview"
-            element={
-              <ProtectedRoute>
-                <OverviewPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/alerts"
-            element={
-              <ProtectedRoute>
-                <AlertsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/endpoints/:id"
-            element={
-              <ProtectedRoute>
-                <EndpointDetailPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <React.Suspense fallback={<RouteLoading />}>
+          <Routes>
+            <Route path="/token" element={<TokenPage />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <OverviewPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/overview"
+              element={
+                <ProtectedRoute>
+                  <OverviewPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/alerts"
+              element={
+                <ProtectedRoute>
+                  <AlertsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/endpoints/:id"
+              element={
+                <ProtectedRoute>
+                  <EndpointDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </React.Suspense>
       </main>
       <footer className="border-t py-4 text-center text-xs text-muted-foreground">
         <div className="container flex flex-col sm:flex-row items-center justify-between gap-2">
