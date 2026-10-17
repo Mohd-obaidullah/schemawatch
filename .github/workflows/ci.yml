@@ -59,3 +59,34 @@ jobs:
 
       - name: Run Tests with Coverage
         run: uv run --python ${{ matrix.python-version }} pytest --cov=schemawatch --cov-report=term-missing --cov-fail-under=90 packages/core/tests
+
+  web:
+    name: Frontend (apps/web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Vitest
+        run: npm run test
+
+      - name: Build Web Dashboard
+        run: npm run build

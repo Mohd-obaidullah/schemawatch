@@ -273,7 +273,7 @@
           "Endpoints"
         ],
         "summary": "Accept Observed Schema as New Baseline",
-        "description": "Adopt latest observed payload shape as new baseline version and acknowledge all open events.",
+        "description": "Adopt latest observed schema as new baseline and acknowledge all open events.",
         "operationId": "acceptEndpointBaseline",
         "security": [
           {
@@ -342,10 +342,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter by severity: breaking, warning, info",
+              "description": "Severity: breaking, warning, info",
               "title": "Severity"
             },
-            "description": "Filter by severity: breaking, warning, info"
+            "description": "Severity: breaking, warning, info"
           },
           {
             "name": "vendor",
@@ -396,10 +396,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter by acknowledgment status",
+              "description": "Filter by acknowledgment",
               "title": "Acknowledged"
             },
-            "description": "Filter by acknowledgment status"
+            "description": "Filter by acknowledgment"
           },
           {
             "name": "since",
@@ -415,10 +415,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter events detected after this timestamp",
+              "description": "Events detected after timestamp",
               "title": "Since"
             },
-            "description": "Filter events detected after this timestamp"
+            "description": "Events detected after timestamp"
           },
           {
             "name": "cursor",

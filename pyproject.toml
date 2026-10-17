@@ -44,3 +44,4 @@ warn_unused_configs = true
 testpaths = ["packages/core/tests", "apps/api/tests"]
 addopts = "-v"
 asyncio_mode = "auto"
+pythonpath = [".", "apps/api", "packages/core"]

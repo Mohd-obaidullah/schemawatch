@@ -19,6 +19,24 @@ uv run python examples/demo.py
 uv run python examples/mock_vendor.py
 ```
 
+## Web Dashboard
+
+The web dashboard (`apps/web`) provides real-time visibility into third-party API contract drift, endpoint health, and breaking change alerts. When built (`npm run build`), it is served directly by the FastAPI backend at `/`.
+
+```bash
+# 1. Build frontend dashboard
+cd apps/web
+npm install
+npm run build
+cd ../..
+
+# 2. Seed realistic demo traffic & alerts
+uv run python apps/api/scripts/seed_demo.py
+
+# 3. Start the server (serves dashboard at http://127.0.0.1:8000)
+uv run python -m schemawatch_api
+```
+
 ## HTTP Client Integration (httpx)
 
 Integrate schemawatch into any `httpx.Client` or `httpx.AsyncClient` via non-blocking event hooks:
