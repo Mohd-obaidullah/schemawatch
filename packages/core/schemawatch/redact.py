@@ -8,6 +8,7 @@ from typing import Any
 DEFAULT_MAX_PAYLOAD_BYTES: int = 1_000_000  # 1 MB
 DEFAULT_MAX_ARRAY_LENGTH: int = 10
 DEFAULT_MAX_OBJECT_KEYS: int = 50
+DEFAULT_MAX_NESTING_DEPTH: int = 32
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _UUID_RE = re.compile(
@@ -57,6 +58,7 @@ def redact(
     max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES,
     max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH,
     max_object_keys: int = DEFAULT_MAX_OBJECT_KEYS,
+    max_depth: int = DEFAULT_MAX_NESTING_DEPTH,
 ) -> Any:
     """Sanitize a payload by replacing raw values with type-preserving placeholders.
 
@@ -129,6 +131,8 @@ def redact(
         payload,
         max_array_length=max_array_length,
         max_object_keys=max_object_keys,
+        current_depth=0,
+        max_depth=max_depth,
     )
 
 
@@ -137,8 +141,15 @@ def _redact_value(
     *,
     max_array_length: int,
     max_object_keys: int = DEFAULT_MAX_OBJECT_KEYS,
+    current_depth: int = 0,
+    max_depth: int = DEFAULT_MAX_NESTING_DEPTH,
 ) -> Any:
     """Recursively replace values with type-preserving zero/empty representations."""
+    if current_depth > max_depth:
+        raise PayloadTooLargeError(
+            f"Payload nesting depth ({current_depth}) exceeds maximum limit ({max_depth})"
+        )
+
     if value is None:
         return None
     # Check bool before int, since bool is a subclass of int in Python
@@ -160,6 +171,8 @@ def _redact_value(
                     v,
                     max_array_length=max_array_length,
                     max_object_keys=max_object_keys,
+                    current_depth=current_depth + 1,
+                    max_depth=max_depth,
                 )
                 if merged_val is None:
                     merged_val = redacted_v
@@ -171,6 +184,8 @@ def _redact_value(
                 v,
                 max_array_length=max_array_length,
                 max_object_keys=max_object_keys,
+                current_depth=current_depth + 1,
+                max_depth=max_depth,
             )
             for k, v in value.items()
         }
@@ -181,6 +196,8 @@ def _redact_value(
                 item,
                 max_array_length=max_array_length,
                 max_object_keys=max_object_keys,
+                current_depth=current_depth + 1,
+                max_depth=max_depth,
             )
             for item in truncated
         ]

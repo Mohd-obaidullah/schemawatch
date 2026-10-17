@@ -60,6 +60,8 @@ def infer_schema(
     *,
     max_array_length: int = DEFAULT_MAX_ARRAY_LENGTH,
     max_object_keys: int = DEFAULT_MAX_OBJECT_KEYS,
+    current_depth: int = 0,
+    max_depth: int = 32,
 ) -> SchemaNode:
     """Infer the schema shape from a Python/JSON value.
 
@@ -70,10 +72,17 @@ def infer_schema(
         value: The JSON value to infer a schema for.
         max_array_length: Maximum number of array elements to inspect.
         max_object_keys: Maximum number of object keys before treating as a wildcard map.
+        current_depth: Current recursion depth.
+        max_depth: Maximum recursion depth allowed before truncation.
 
     Returns:
         SchemaNode describing the type and nested structure.
     """
+    if current_depth > max_depth:
+        if isinstance(value, dict):
+            return SchemaNode(types={"object"})
+        return SchemaNode(types={"string"})
+
     if value is None:
         return SchemaNode(types={"null"})
 
@@ -94,6 +103,8 @@ def infer_schema(
                     v,
                     max_array_length=max_array_length,
                     max_object_keys=max_object_keys,
+                    current_depth=current_depth + 1,
+                    max_depth=max_depth,
                 )
                 merged_val = merge(merged_val, val_node) if merged_val is not None else val_node
             fallback = SchemaNode(types={"null"})
@@ -111,6 +122,8 @@ def infer_schema(
                 v,
                 max_array_length=max_array_length,
                 max_object_keys=max_object_keys,
+                current_depth=current_depth + 1,
+                max_depth=max_depth,
             )
             required.add(k_str)
         return SchemaNode(types={"object"}, properties=properties, required=required)
@@ -122,6 +135,8 @@ def infer_schema(
             truncated[0],
             max_array_length=max_array_length,
             max_object_keys=max_object_keys,
+            current_depth=current_depth + 1,
+            max_depth=max_depth,
         )
         for elem in truncated[1:]:
             item_schema = merge(
@@ -130,6 +145,8 @@ def infer_schema(
                     elem,
                     max_array_length=max_array_length,
                     max_object_keys=max_object_keys,
+                    current_depth=current_depth + 1,
+                    max_depth=max_depth,
                 ),
             )
         return SchemaNode(types={"array"}, items=item_schema)

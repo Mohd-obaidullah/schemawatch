@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 from schemawatch.redact import (
@@ -106,3 +107,15 @@ def test_redact_bytes_edge_cases() -> None:
     from schemawatch.redact import _redact_value
 
     assert _redact_value(object(), max_array_length=5) is None
+
+
+def test_redact_nesting_depth_limit() -> None:
+    # Build payload with 35 levels of nesting (exceeds default limit 32)
+    nested: dict[str, Any] = {"value": 1}
+    for _ in range(35):
+        nested = {"level": nested}
+
+    with pytest.raises(PayloadTooLargeError) as exc_info:
+        redact(nested)
+
+    assert "nesting depth" in str(exc_info.value)
