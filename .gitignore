@@ -38,6 +38,19 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Environment & Secrets
+.env*
+!.env.example
+
+# Databases & Runtime state
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend & Dependencies
+node_modules/
+dist/
+
 # OS / IDE
 .DS_Store
 Thumbs.db
@@ -45,3 +58,4 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+
