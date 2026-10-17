@@ -136,10 +136,8 @@ def test_legacy_baseline_deserialization_compatibility() -> None:
     """Ensure existing persisted baselines without 'is_map' flag still load as dynamic maps."""
     legacy_data = {
         "types": ["object"],
-        "properties": {
-            "*": {"types": ["string"]}
-        },
-        "required": ["*"]
+        "properties": {"*": {"types": ["string"]}},
+        "required": ["*"],
     }
     node = SchemaNode.from_dict(legacy_data)
     assert node.is_map
