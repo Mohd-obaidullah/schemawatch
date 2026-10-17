@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from schemawatch.diff import Change, DriftEvent, diff
 from schemawatch.infer import SchemaNode, infer_schema, merge
-from schemawatch.redact import redact
+from schemawatch.redact import DYNAMIC_KEY_WILDCARD, DynamicKeyWildcard, redact
 from schemawatch.severity import (
     KIND_BECAME_NULLABLE,
     KIND_ENUM_CHANGED,
@@ -25,7 +25,9 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Change",
+    "DYNAMIC_KEY_WILDCARD",
     "DriftEvent",
+    "DynamicKeyWildcard",
     "KIND_BECAME_NULLABLE",
     "KIND_ENUM_CHANGED",
     "KIND_FIELD_ADDED",

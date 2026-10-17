@@ -6,8 +6,16 @@ from typing import Any
 from schemawatch.redact import (
     DEFAULT_MAX_ARRAY_LENGTH,
     DEFAULT_MAX_OBJECT_KEYS,
+    DYNAMIC_KEY_WILDCARD,
     is_dynamic_map,
 )
+
+__all__ = [
+    "DYNAMIC_KEY_WILDCARD",
+    "SchemaNode",
+    "infer_schema",
+    "merge",
+]
 
 
 @dataclass
@@ -19,27 +27,55 @@ class SchemaNode:
     required: set[str] = field(default_factory=set)
     items: SchemaNode | None = None
 
+    @property
+    def is_map(self) -> bool:
+        """True if this object node represents a dynamic-key wildcard map."""
+        return DYNAMIC_KEY_WILDCARD in self.properties
+
     def to_dict(self) -> dict[str, Any]:
         """Convert the SchemaNode into a JSON-serializable dictionary."""
         result: dict[str, Any] = {
             "types": sorted(self.types),
         }
         if self.properties:
-            result["properties"] = {k: v.to_dict() for k, v in sorted(self.properties.items())}
+            result["properties"] = {
+                str(k): v.to_dict()
+                for k, v in sorted(self.properties.items(), key=lambda item: str(item[0]))
+            }
         if self.required:
-            result["required"] = sorted(self.required)
+            result["required"] = sorted(str(k) for k in self.required)
         if self.items is not None:
             result["items"] = self.items.to_dict()
+        if "object" in self.types:
+            result["is_map"] = self.is_map
         return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SchemaNode:
         """Construct a SchemaNode from a dictionary representation."""
         node = cls(types=set(data.get("types", [])))
+        is_map = data.get("is_map")
+        if is_map is None and "properties" in data and set(data["properties"].keys()) == {"*"}:
+            is_map = True
+
         if "properties" in data:
-            node.properties = {k: cls.from_dict(v) for k, v in data["properties"].items()}
+            props: dict[str, SchemaNode] = {}
+            for k, v in data["properties"].items():
+                if is_map and k == "*":
+                    props[DYNAMIC_KEY_WILDCARD] = cls.from_dict(v)
+                else:
+                    props[k] = cls.from_dict(v)
+            node.properties = props
+
         if "required" in data:
-            node.required = set(data["required"])
+            reqs: set[str] = set()
+            for k in data["required"]:
+                if is_map and k == "*":
+                    reqs.add(DYNAMIC_KEY_WILDCARD)
+                else:
+                    reqs.add(k)
+            node.required = reqs
+
         if "items" in data and data["items"] is not None:
             node.items = cls.from_dict(data["items"])
         return node
@@ -111,13 +147,13 @@ def infer_schema(
             item_node = merged_val if merged_val is not None else fallback
             return SchemaNode(
                 types={"object"},
-                properties={"*": item_node},
-                required={"*"},
+                properties={DYNAMIC_KEY_WILDCARD: item_node},
+                required={DYNAMIC_KEY_WILDCARD},
             )
         properties: dict[str, SchemaNode] = {}
         required: set[str] = set()
         for k, v in value.items():
-            k_str = str(k)
+            k_str = k if k is DYNAMIC_KEY_WILDCARD else str(k)
             properties[k_str] = infer_schema(
                 v,
                 max_array_length=max_array_length,

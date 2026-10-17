@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from schemawatch.infer import SchemaNode
+from schemawatch.infer import DYNAMIC_KEY_WILDCARD, SchemaNode
 from schemawatch.severity import (
     KIND_BECAME_NULLABLE,
     KIND_FIELD_ADDED,
@@ -149,18 +149,18 @@ def diff(baseline: SchemaNode, observed: SchemaNode, path: str = "$") -> list[Ch
 
     # 3. Object property comparisons
     if "object" in baseline.types and "object" in observed.types:
-        if "*" in baseline.properties:
+        if DYNAMIC_KEY_WILDCARD in baseline.properties:
             # Baseline is a wildcard map: match observed properties against wildcard schema
             for prop in observed.properties:
                 child_path = f"{path}.*"
                 changes.extend(
                     diff(
-                        baseline.properties["*"],
+                        baseline.properties[DYNAMIC_KEY_WILDCARD],
                         observed.properties[prop],
                         path=child_path,
                     )
                 )
-        elif "*" in observed.properties:
+        elif DYNAMIC_KEY_WILDCARD in observed.properties:
             # Baseline was normal object, but observed became a wildcard map
             for prop in baseline.properties:
                 prop_path = f"{path}.{prop}"

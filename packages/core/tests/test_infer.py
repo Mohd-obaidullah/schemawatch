@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from schemawatch.infer import SchemaNode, infer_schema, merge
+from schemawatch.infer import DYNAMIC_KEY_WILDCARD, SchemaNode, infer_schema, merge
 
 
 def test_infer_primitives() -> None:
@@ -114,6 +114,35 @@ def test_infer_schema_large_object_treated_as_map() -> None:
     large_dict = {f"k_{i}": i * 10 for i in range(60)}
     node = infer_schema(large_dict)
     assert node.types == {"object"}
-    assert "*" in node.properties
-    assert node.properties["*"].types == {"integer"}
-    assert node.required == {"*"}
+    assert node.is_map
+    assert DYNAMIC_KEY_WILDCARD in node.properties
+    assert node.properties[DYNAMIC_KEY_WILDCARD].types == {"integer"}
+    assert node.required == {DYNAMIC_KEY_WILDCARD}
+
+    # Serialization preserves '*' key and marks is_map
+    serialized = node.to_dict()
+    assert serialized.get("is_map") is True
+    assert "*" in serialized["properties"]
+    assert serialized["properties"]["*"]["types"] == ["integer"]
+
+    # Deserialization restores DYNAMIC_KEY_WILDCARD
+    restored = SchemaNode.from_dict(serialized)
+    assert restored == node
+    assert restored.is_map
+    assert DYNAMIC_KEY_WILDCARD in restored.properties
+
+
+def test_legacy_baseline_deserialization_compatibility() -> None:
+    """Ensure existing persisted baselines without 'is_map' flag still load as dynamic maps."""
+    legacy_data = {
+        "types": ["object"],
+        "properties": {
+            "*": {"types": ["string"]}
+        },
+        "required": ["*"]
+    }
+    node = SchemaNode.from_dict(legacy_data)
+    assert node.is_map
+    assert DYNAMIC_KEY_WILDCARD in node.properties
+    assert node.properties[DYNAMIC_KEY_WILDCARD].types == {"string"}
+    assert node.required == {DYNAMIC_KEY_WILDCARD}

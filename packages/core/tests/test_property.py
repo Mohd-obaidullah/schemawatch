@@ -27,7 +27,7 @@ json_data = st.recursive(
 
 
 @given(json_data)
-@settings(max_examples=50)
+@settings(max_examples=500)
 def test_payload_never_drifts_from_itself(payload: Any) -> None:
     """Property test: A payload never drifts from a baseline built from itself."""
     schema = infer_schema(payload)
@@ -36,7 +36,7 @@ def test_payload_never_drifts_from_itself(payload: Any) -> None:
 
 
 @given(json_data, json_data)
-@settings(max_examples=50)
+@settings(max_examples=500)
 def test_merge_is_commutative(payload_a: Any, payload_b: Any) -> None:
     """Property test: merge(A, B) == merge(B, A)."""
     schema_a = infer_schema(payload_a)
@@ -49,7 +49,7 @@ def test_merge_is_commutative(payload_a: Any, payload_b: Any) -> None:
 
 
 @given(json_data, json_data, json_data)
-@settings(max_examples=50)
+@settings(max_examples=500)
 def test_merge_is_associative(payload_a: Any, payload_b: Any, payload_c: Any) -> None:
     """Property test: merge(merge(A, B), C) == merge(A, merge(B, C))."""
     schema_a = infer_schema(payload_a)

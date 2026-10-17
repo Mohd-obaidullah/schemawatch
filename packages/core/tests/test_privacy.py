@@ -4,7 +4,7 @@ import json
 
 import pytest
 from schemawatch.infer import infer_schema
-from schemawatch.redact import is_dynamic_map, redact
+from schemawatch.redact import DYNAMIC_KEY_WILDCARD, is_dynamic_map, redact
 from schemawatch.watchdog import Watchdog
 
 
@@ -100,7 +100,8 @@ def test_privacy_five_email_keyed_users_never_leak_emails(caplog: pytest.LogCapt
     baseline_str = json.dumps(baseline.to_dict())
     for email in emails:
         assert email not in baseline_str
-    assert "*" in baseline.properties
+    assert DYNAMIC_KEY_WILDCARD in baseline.properties
+    assert baseline.is_map
 
     # Step 2: Trigger drift with 5 new email keys and type drift
     new_emails = [f"new_victim_{i}@classified.org" for i in range(5)]
@@ -149,6 +150,8 @@ def test_privacy_normal_eight_field_object_is_not_turned_into_a_map() -> None:
     # Inferred schema retains all 8 properties and required fields
     node = infer_schema(normal_object)
     assert "*" not in node.properties
+    assert DYNAMIC_KEY_WILDCARD not in node.properties
+    assert not node.is_map
     assert len(node.properties) == 8
     assert node.required == set(normal_object.keys())
 

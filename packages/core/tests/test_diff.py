@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from schemawatch.diff import Change, diff
-from schemawatch.infer import SchemaNode, infer_schema, merge
+from schemawatch.infer import DYNAMIC_KEY_WILDCARD, SchemaNode, infer_schema, merge
 from schemawatch.severity import (
     KIND_BECAME_NULLABLE,
     KIND_FIELD_ADDED,
@@ -150,7 +150,10 @@ def test_diff_object_transition_to_map() -> None:
     # Baseline was normal object
     baseline = infer_schema({"id": 1, "name": "foo"})
     # Observed became a map
-    observed = SchemaNode(types={"object"}, properties={"*": SchemaNode(types={"string"})})
+    observed = SchemaNode(
+        types={"object"},
+        properties={DYNAMIC_KEY_WILDCARD: SchemaNode(types={"string"})},
+    )
 
     changes = diff(baseline, observed)
     assert any(c.kind == "field_missing" and c.field == "$.id" for c in changes)
@@ -188,3 +191,10 @@ def test_drift_event_to_dict_and_highest_severity() -> None:
     assert d["highest_severity"] == "breaking"
     assert d["detected_at"] == 123456789.0
     assert len(d["changes"]) == 3
+
+
+def test_diff_object_with_literal_asterisk_key_does_not_drift_from_itself() -> None:
+    payload = {"0": None, "*": False}
+    schema = infer_schema(payload)
+    changes = diff(schema, schema)
+    assert changes == []

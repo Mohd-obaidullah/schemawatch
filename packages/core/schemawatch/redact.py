@@ -18,6 +18,41 @@ _LONG_DIGIT_RE = re.compile(r"^\d{8,}$")
 _LONG_HEX_RE = re.compile(r"^[0-9a-fA-F]{16,}$")
 
 
+class DynamicKeyWildcard(str):
+    """Sentinel representing a dynamic-key wildcard map (*).
+
+    Distinct from any literal string key.
+    """
+
+    _instance: DynamicKeyWildcard | None = None
+
+    def __new__(cls) -> DynamicKeyWildcard:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls, "*")
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "DYNAMIC_KEY_WILDCARD"
+
+    def __eq__(self, other: object) -> bool:
+        return other is self
+
+    def __hash__(self) -> int:
+        return hash("__dynamic_key_wildcard__")
+
+    def __copy__(self) -> DynamicKeyWildcard:
+        return self
+
+    def __deepcopy__(self, memo: Any) -> DynamicKeyWildcard:
+        return self
+
+    def __reduce__(self) -> str | tuple[Any, ...]:
+        return (DynamicKeyWildcard, ())
+
+
+DYNAMIC_KEY_WILDCARD = DynamicKeyWildcard()
+
+
 def is_dynamic_key(key: Any) -> bool:
     """Check if key looks like an email, UUID, long digit string, or long hex string."""
     k = str(key).strip()
@@ -34,13 +69,16 @@ def is_dynamic_map(keys: Iterable[Any], max_keys: int = DEFAULT_MAX_OBJECT_KEYS)
     - >= 50% of its keys (minimum 3 matching keys) look like emails, UUIDs,
       long digit strings, or long hex strings.
     """
-    key_list = [str(k) for k in keys]
-    total = len(key_list)
+    key_list = list(keys)
+    if any(k is DYNAMIC_KEY_WILDCARD for k in key_list):
+        return True
+    key_str_list = [str(k) for k in key_list]
+    total = len(key_str_list)
     if total > max_keys:
         return True
     if total < 3:
         return False
-    dynamic_count = sum(1 for k in key_list if is_dynamic_key(k))
+    dynamic_count = sum(1 for k in key_str_list if is_dynamic_key(k))
     return dynamic_count >= 3 and (dynamic_count / total) >= 0.5
 
 
@@ -178,9 +216,9 @@ def _redact_value(
                     merged_val = redacted_v
                 elif isinstance(merged_val, dict) and isinstance(redacted_v, dict):
                     merged_val = {**merged_val, **redacted_v}
-            return {"*": merged_val if merged_val is not None else {}}
+            return {DYNAMIC_KEY_WILDCARD: merged_val if merged_val is not None else {}}
         return {
-            str(k): _redact_value(
+            (k if k is DYNAMIC_KEY_WILDCARD else str(k)): _redact_value(
                 v,
                 max_array_length=max_array_length,
                 max_object_keys=max_object_keys,
