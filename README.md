@@ -7,8 +7,7 @@
 schemawatch learns the JSON response schema of the APIs you depend on from live traffic (no spec required)
 and alerts you the moment that schema changes in a way that can break your system.
 
-[![CI](https://github.com/Mohd-obaidullah/schemawatch/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohd-obaidullah/schemawatch/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%20to%203.13-blue)
+   [![CI](https://github.com/Mohd-obaidullah/schemawatch/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Mohd-obaidullah/schemawatch/actions/workflows/ci.yml)![Python](https://img.shields.io/badge/python-3.10%20to%203.13-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 </div>
