@@ -58,7 +58,7 @@ jobs:
         run: uv sync --python ${{ matrix.python-version }}
 
       - name: Run Tests with Coverage
-        run: uv run --python ${{ matrix.python-version }} pytest --cov=schemawatch --cov-report=term-missing --cov-fail-under=90 packages/core/tests
+        run: uv run --python ${{ matrix.python-version }} pytest --cov=schemawatch --cov-report=term-missing --cov-fail-under=90
 
   web:
     name: Frontend (apps/web)

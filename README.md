@@ -229,6 +229,7 @@ grouped into one colored attachment per severity, most urgent first:
 
 ```python
 from schemawatch.alerts import fan_out
+
 alert_sink = fan_out(slack_alert, webhook_alert)
 ```
 
