@@ -29,7 +29,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   // Check config on initial mount to see if server is in dev_mode
   useEffect(() => {
     let isMounted = true;
-    fetch("/api/config")
+    const headers: Record<string, string> = {};
+    const existingToken = sessionStorage.getItem(TOKEN_KEY);
+    if (existingToken) {
+      headers["Authorization"] = `Bearer ${existingToken}`;
+    }
+
+    fetch("/api/config", { headers })
       .then((res) => {
         if (res.ok) return res.json();
         return null;

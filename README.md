@@ -19,10 +19,12 @@ and alerts you the moment that schema changes in a way that can break your syste
 - [Why schemawatch](#why-schemawatch)
 - [Features](#features)
 - [How it works](#how-it-works)
+- [Installation](#installation)
 - [Quickstart](#quickstart)
 - [Using it in your code (httpx)](#using-it-in-your-code-httpx)
 - [Alert channels](#alert-channels)
 - [API server](#api-server)
+- [Run with Docker](#run-with-docker)
 - [Web dashboard](#web-dashboard)
 - [Configuration](#configuration)
 - [Privacy and security](#privacy-and-security)
@@ -109,6 +111,37 @@ rarely provide an accurate spec, and test environments do not show what producti
 | `field_added` | A new field appeared | info |
 
 Planned: opt-in enum drift (see [Roadmap](#roadmap)).
+
+## Installation
+
+Install from PyPI:
+
+```bash
+# Core monitoring engine
+pip install schemawatch-core
+
+# With httpx client hook
+pip install "schemawatch-core[httpx]"
+
+# Full FastAPI server and dashboard CLI
+pip install schemawatch-api
+```
+
+Or install directly from GitHub:
+
+```bash
+pip install "git+https://github.com/Mohd-obaidullah/schemawatch.git#subdirectory=packages/core"
+pip install "git+https://github.com/Mohd-obaidullah/schemawatch.git#subdirectory=apps/api"
+```
+
+In your code, import `schemawatch` (or `schemawatch_api`):
+
+```python
+import schemawatch
+from schemawatch import Watchdog, create_httpx_hook
+```
+
+See [docs/RELEASING.md](docs/RELEASING.md) for the PyPI release and publishing walkthrough.
 
 ## Quickstart
 
@@ -256,27 +289,66 @@ uv run python -m schemawatch_api
 Open <http://127.0.0.1:8000/docs> for the interactive API documentation and <http://127.0.0.1:8000/> for the dashboard
 (after building it, see below).
 
-> **Warning:** `SCHEMAWATCH_DEV_MODE=true` **disables authentication** and is for local use only. For anything else, set
-> `SCHEMAWATCH_API_TOKEN` and send `Authorization: Bearer <token>`.
+#### Security & API Tokens
+
+`schemawatch` is **secure by default**. In production (`SCHEMAWATCH_DEV_MODE=false`), the server strictly requires a non-empty, non-placeholder API bearer token and fails fast on startup if one is not configured:
+
+```bash
+# Generate a cryptographically secure token
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Set token and run in production mode
+export SCHEMAWATCH_API_TOKEN="<generated-token>"
+export SCHEMAWATCH_DEV_MODE="false"
+uv run python -m schemawatch_api
+```
+
+Authenticate every API request using the standard HTTP Authorization header:
+```http
+Authorization: Bearer <SCHEMAWATCH_API_TOKEN>
+```
+
+> **Warning:** `SCHEMAWATCH_DEV_MODE=true` **disables authentication** and emits a loud startup warning. Never enable dev mode in production. For token rotation, reverse proxy / HTTPS termination, and CORS origin whitelisting, refer to [SECURITY.md](SECURITY.md).
 
 ### Try a live drift
 
 Make the server learn quickly and check every request:
 
 ```bash
+# bash / zsh
 export SCHEMAWATCH_DEV_MODE=true SCHEMAWATCH_LEARN_SAMPLES=5 SCHEMAWATCH_SAMPLE_RATE=1.0
+uv run python -m schemawatch_api
+```
+
+```powershell
+# Windows PowerShell
+$env:SCHEMAWATCH_DEV_MODE="true"
+$env:SCHEMAWATCH_LEARN_SAMPLES="5"
+$env:SCHEMAWATCH_SAMPLE_RATE="1.0"
 uv run python -m schemawatch_api
 ```
 
 In a second terminal send five normal payloads, then one where `user_id` became a string:
 
 ```bash
+# bash / zsh
 for i in 1 2 3 4 5; do
   curl -s -X POST http://127.0.0.1:8000/api/ingest -H "Content-Type: application/json" \
     -d "{\"vendor\":\"payco\",\"endpoint\":\"GET /v1/payments/{id}\",\"payload\":{\"user_id\":$i,\"amount\":10.5}}"
 done
 
 curl -s -X POST http://127.0.0.1:8000/api/ingest -H "Content-Type: application/json" \
+  -d '{"vendor":"payco","endpoint":"GET /v1/payments/{id}","payload":{"user_id":"u_1","amount":10.5}}'
+```
+
+```powershell
+# Windows PowerShell (use curl.exe to avoid PowerShell's Invoke-WebRequest alias)
+1..5 | ForEach-Object {
+  curl.exe -s -X POST http://127.0.0.1:8000/api/ingest -H "Content-Type: application/json" `
+    -d "{`"vendor`":`"payco`",`"endpoint`":`"GET /v1/payments/{id}`",`"payload`":{`"user_id`":$_,`"amount`":10.5}}"
+}
+
+curl.exe -s -X POST http://127.0.0.1:8000/api/ingest -H "Content-Type: application/json" `
   -d '{"vendor":"payco","endpoint":"GET /v1/payments/{id}","payload":{"user_id":"u_1","amount":10.5}}'
 ```
 
@@ -298,6 +370,96 @@ Then open <http://127.0.0.1:8000/api/events> to see the `type_changed` event.
 | `GET` | `/healthz` | Health check (no auth) |
 
 The authoritative, always-current reference is the generated OpenAPI documentation at `/docs`.
+
+## Run with Docker
+
+Run the complete schemawatch stack (API server, web dashboard, PostgreSQL, and automatic migrations) in a single command.
+
+### Prerequisites
+
+- **Docker Desktop** (Windows / macOS) or **Docker Engine with Docker Compose v2** (Linux) must be installed and running.
+
+---
+
+### Windows (PowerShell)
+
+```powershell
+# 1. Generate safe .env and cryptographic API token
+.\scripts\setup.ps1
+
+# 2. Build and start services in the background
+docker compose up --build -d
+
+# 3. Run automated smoke test
+.\scripts\smoke-test.ps1
+
+# View logs
+docker compose logs --tail 50 schemawatch
+
+# Stop services (database is preserved in named volume)
+docker compose down
+
+# Stop services and purge database volume
+docker compose down -v
+```
+
+---
+
+### macOS & Linux (Bash)
+
+```bash
+# 1. Generate safe .env and cryptographic API token
+./scripts/setup.sh
+
+# 2. Build and start services in the background
+docker compose up --build -d
+
+# 3. Run automated smoke test
+./scripts/smoke-test.sh
+
+# View logs
+docker compose logs --tail 50 schemawatch
+
+# Stop services (database is preserved in named volume)
+docker compose down
+
+# Stop services and purge database volume
+docker compose down -v
+```
+
+> **Database Configuration Precedence:** The PostgreSQL connection in `docker-compose.yml` (`services.schemawatch.environment`) automatically takes precedence over the default SQLite setting in `.env`. No manual `.env` editing is required for Docker Compose.
+
+---
+
+### Troubleshooting
+
+| Issue | Cause | Solution |
+|---|---|---|
+| `required variable SCHEMAWATCH_API_TOKEN is missing a value` | `.env` is missing or token is unset | Run `.\scripts\setup.ps1` (or `./scripts/setup.sh`) to generate `.env` with a token. |
+| Container exits with `ERROR: SCHEMAWATCH_API_TOKEN is required` | Token is blank or placeholder `your-random-secure-token-here` | Set a valid token in `.env`: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. |
+| `.env` not recognized by Compose | `.env` was saved in the wrong directory | Ensure `.env` is directly in the project root next to `docker-compose.yml`. |
+| Port 8000 already in use | Another process is bound to port 8000 | Run `PORT=8080 docker compose up` or terminate the conflicting process. |
+| "Connection was aborted" / "Could not connect to server" | Container is starting up and applying database migrations | Run `docker compose ps` until `api-schemawatch-1` shows `(healthy)`. Initial migration takes 5–15s. |
+| PowerShell `curl: The term 'curl' is not recognized` or syntax errors | Windows PowerShell aliases `curl` to `Invoke-WebRequest` | Always use `curl.exe` in PowerShell, or use `Invoke-RestMethod`. |
+| `.env.txt` created instead of `.env` | Windows Notepad automatically appends `.txt` | Run `Rename-Item .env.txt .env`, or use `.\scripts\setup.ps1`. |
+
+---
+
+### SQLite Single Container
+
+Run as a standalone container with a persisted SQLite volume:
+
+```bash
+docker build -t schemawatch .
+docker volume create sw-data
+docker run -d \
+  --name schemawatch \
+  -p 8000:8000 \
+  -v sw-data:/data \
+  -e SCHEMAWATCH_DATABASE_URL=sqlite:////data/schemawatch.db \
+  -e SCHEMAWATCH_API_TOKEN=your-random-token \
+  schemawatch
+```
 
 ## Web dashboard
 
@@ -439,6 +601,7 @@ on every push and pull request. Coverage must stay at or above 90%.
 - httpx hook (sync and async), Slack and webhook alerts, `DriftEvent` batching
 - API server with history, SSE and ingest
 - Web dashboard
+- Docker multi-stage container and docker-compose stack (PostgreSQL, optional Redis, auto-migrations, non-root)
 
 **Next**
 
@@ -449,7 +612,7 @@ on every push and pull request. Coverage must stay at or above 90%.
 
 **Later**
 
-- Docker image and compose file, documentation site, PyPI release
+- Documentation site, PyPI release
 - Prometheus metrics
 
 ## FAQ

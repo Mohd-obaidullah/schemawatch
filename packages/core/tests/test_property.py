@@ -20,14 +20,19 @@ json_data = st.recursive(
     json_primitives,
     lambda children: (
         st.lists(children, max_size=5)
-        | st.dictionaries(st.text(min_size=1, max_size=10), children, max_size=5)
+        | st.dictionaries(
+            st.sampled_from(["*", "0", "user@example.com", "id", "data", "status"])
+            | st.text(min_size=1, max_size=10),
+            children,
+            max_size=5,
+        )
     ),
     max_leaves=15,
 )
 
 
 @given(json_data)
-@settings(max_examples=500)
+@settings(max_examples=1000)
 def test_payload_never_drifts_from_itself(payload: Any) -> None:
     """Property test: A payload never drifts from a baseline built from itself."""
     schema = infer_schema(payload)
@@ -36,7 +41,7 @@ def test_payload_never_drifts_from_itself(payload: Any) -> None:
 
 
 @given(json_data, json_data)
-@settings(max_examples=500)
+@settings(max_examples=1000)
 def test_merge_is_commutative(payload_a: Any, payload_b: Any) -> None:
     """Property test: merge(A, B) == merge(B, A)."""
     schema_a = infer_schema(payload_a)
@@ -49,7 +54,7 @@ def test_merge_is_commutative(payload_a: Any, payload_b: Any) -> None:
 
 
 @given(json_data, json_data, json_data)
-@settings(max_examples=500)
+@settings(max_examples=1000)
 def test_merge_is_associative(payload_a: Any, payload_b: Any, payload_c: Any) -> None:
     """Property test: merge(merge(A, B), C) == merge(A, merge(B, C))."""
     schema_a = infer_schema(payload_a)

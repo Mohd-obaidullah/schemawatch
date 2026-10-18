@@ -51,6 +51,12 @@ class SlackAlert:
         self._max_retries = max_retries
         self._backoff = backoff_seconds
         self._sleep_fn = sleep_fn
+        self.last_status_code: int | None = None
+        self.last_response_body: str | None = None
+        self.last_attempts: int = 0
+
+    def __repr__(self) -> str:
+        return f"SlackAlert(webhook_url='***redacted***', channel={self._channel!r})"
 
     def __call__(self, event: DriftEvent | Change) -> None:
         """Dispatch drift event alert to Slack."""
@@ -127,7 +133,12 @@ class SlackAlert:
             "User-Agent": "schemawatch-slack-alert/0.1.0",
         }
 
+        self.last_status_code = None
+        self.last_response_body = None
+        self.last_attempts = 0
+
         for attempt in range(1, self._max_retries + 2):
+            self.last_attempts = attempt
             try:
                 req = urllib.request.Request(
                     self._url,
@@ -136,8 +147,33 @@ class SlackAlert:
                     method="POST",
                 )
                 with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
+                    self.last_status_code = resp.status
+                    self.last_response_body = resp.read().decode("utf-8", errors="replace")
                     if 200 <= resp.status < 300:
                         return True
+            except urllib.error.HTTPError as http_exc:
+                self.last_status_code = http_exc.code
+                try:
+                    self.last_response_body = http_exc.read().decode("utf-8", errors="replace")
+                except Exception:
+                    self.last_response_body = None
+                should_retry, retry_after = should_retry_error(http_exc)
+                logger.warning(
+                    "schemawatch: slack alert delivery failed (attempt %d/%d): HTTP %d",
+                    attempt,
+                    self._max_retries + 1,
+                    http_exc.code,
+                )
+                if not should_retry:
+                    return False
+
+                if attempt <= self._max_retries:
+                    delay = (
+                        retry_after
+                        if retry_after is not None
+                        else self._backoff * (2 ** (attempt - 1))
+                    )
+                    self._sleep_fn(delay)
             except Exception as exc:
                 should_retry, retry_after = should_retry_error(exc)
                 # Privacy rule: NEVER log the webhook URL

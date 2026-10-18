@@ -108,10 +108,11 @@ function TreeNode({
             node.properties &&
             Object.entries(node.properties).map(([propName, childNode]) => {
               const childRequired = node.required?.includes(propName) ?? false;
+              const displayName = node.is_map && propName === "*" ? "* (dynamic map)" : propName;
               return (
                 <TreeNode
                   key={propName}
-                  name={propName}
+                  name={displayName}
                   node={childNode}
                   isRequired={childRequired}
                   depth={depth + 1}

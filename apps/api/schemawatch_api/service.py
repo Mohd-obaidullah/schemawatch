@@ -56,7 +56,13 @@ class SchemawatchService:
             )
         if settings.alert_webhook_url:
             self.alert_channels.append(
-                ("webhook", WebhookAlert(url=settings.alert_webhook_url).send)
+                (
+                    "webhook",
+                    WebhookAlert(
+                        url=settings.alert_webhook_url,
+                        secret=settings.alert_webhook_secret,
+                    ).send,
+                )
             )
 
         # Initialize Watchdog core monitor with SqlStore

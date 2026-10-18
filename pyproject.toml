@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Monorepo for schemawatch: open-source API contract drift monitor"
 requires-python = ">=3.10"
 dependencies = [
-    "schemawatch",
+    "schemawatch-core",
     "schemawatch-api",
 ]
 
@@ -12,7 +12,7 @@ dependencies = [
 members = ["packages/core", "apps/api"]
 
 [tool.uv.sources]
-schemawatch = { workspace = true }
+schemawatch-core = { workspace = true }
 schemawatch-api = { workspace = true }
 
 [dependency-groups]
@@ -42,6 +42,9 @@ warn_unused_configs = true
 
 [tool.pytest.ini_options]
 testpaths = ["packages/core/tests", "apps/api/tests"]
-addopts = "-v"
+addopts = "-v -m 'not integration'"
+markers = [
+    "integration: live external alert endpoint tests (read from env vars, skipped when unset)",
+]
 asyncio_mode = "auto"
 pythonpath = [".", "apps/api", "packages/core"]

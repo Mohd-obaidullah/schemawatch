@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import logging
-import secrets
 import threading
 import time
 from collections.abc import AsyncGenerator
@@ -141,7 +141,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if (
             not auth
             or not auth.credentials
-            or not secrets.compare_digest(auth.credentials, settings.api_token)
+            or not hmac.compare_digest(auth.credentials, settings.api_token)
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

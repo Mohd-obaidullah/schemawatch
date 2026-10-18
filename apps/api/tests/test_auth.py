@@ -9,6 +9,26 @@ from schemawatch_api.config import Settings
 TEST_API_TOKEN = "test-secret-token-12345"
 
 
+def test_startup_refused_without_token() -> None:
+    settings = Settings(
+        database_url="sqlite:///:memory:",
+        api_token="",
+        dev_mode=False,
+    )
+    with pytest.raises(ValueError, match="SCHEMAWATCH_API_TOKEN is required"):
+        create_app(settings)
+
+
+def test_startup_refused_with_placeholder_token() -> None:
+    settings = Settings(
+        database_url="sqlite:///:memory:",
+        api_token="your-random-secure-token-here",
+        dev_mode=False,
+    )
+    with pytest.raises(ValueError, match="placeholder 'your-random-secure-token-here'"):
+        create_app(settings)
+
+
 @pytest.mark.asyncio
 async def test_healthz_no_auth_required(client: httpx.AsyncClient) -> None:
     resp = await client.get("/healthz")

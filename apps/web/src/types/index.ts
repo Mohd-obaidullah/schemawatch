@@ -15,6 +15,7 @@ export interface SchemaNode {
   properties?: Record<string, SchemaNode>;
   items?: SchemaNode;
   enum?: (string | number | boolean | null)[];
+  is_map?: boolean;
   [key: string]: unknown;
 }
 

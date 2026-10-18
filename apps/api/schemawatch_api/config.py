@@ -8,6 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 VALID_MIN_SEVERITIES = frozenset({"breaking", "warning", "info"})
 
 
+PLACEHOLDER_TOKEN = "your-random-secure-token-here"
+
+
 class Settings(BaseSettings):
     """Configuration for schemawatch API server, loaded from environment variables."""
 
@@ -34,7 +37,7 @@ class Settings(BaseSettings):
         description="Enable developer mode (allows unauthenticated access when api_token is unset)",
     )
     learn_samples: int = Field(
-        default=10,
+        default=5,
         description="Number of initial samples required to establish a baseline",
     )
     sample_rate: float = Field(
@@ -53,6 +56,10 @@ class Settings(BaseSettings):
         default=None,
         description="Optional generic webhook URL for drift alert dispatch",
     )
+    alert_webhook_secret: str | None = Field(
+        default=None,
+        description="Optional shared secret for HMAC-SHA256 signing of webhook alert payloads",
+    )
     min_alert_severity: str = Field(
         default="info",
         description="Minimum severity required for alerts (breaking, warning, info)",
@@ -69,8 +76,8 @@ class Settings(BaseSettings):
     @field_validator("api_token")
     @classmethod
     def validate_api_token(cls, v: str, info: Any) -> str:
-        # If DEV_MODE is not true, API_TOKEN must not be empty
-        # Handled in model validator below
+        # If DEV_MODE is not true, API_TOKEN must not be empty or placeholder
+        # Handled in validate_token_requirement
         return v
 
     @field_validator("min_alert_severity")
@@ -82,6 +89,13 @@ class Settings(BaseSettings):
         return v_lower
 
     def validate_token_requirement(self) -> None:
-        """Check that api_token is set when dev_mode is false."""
-        if not self.dev_mode and not self.api_token:
-            raise ValueError("SCHEMAWATCH_API_TOKEN is required when SCHEMAWATCH_DEV_MODE is false")
+        """Check that api_token is set and secure when dev_mode is false."""
+        if not self.dev_mode:
+            token = self.api_token.strip() if self.api_token else ""
+            if not token or token == PLACEHOLDER_TOKEN:
+                raise ValueError(
+                    "SCHEMAWATCH_API_TOKEN is required and cannot be empty or the placeholder "
+                    f"'{PLACEHOLDER_TOKEN}' when SCHEMAWATCH_DEV_MODE is not 'true'. "
+                    "Generate a secure token with:\n"
+                    '  python -c "import secrets; print(secrets.token_urlsafe(32))"'
+                )

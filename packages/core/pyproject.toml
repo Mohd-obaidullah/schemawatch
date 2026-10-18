@@ -3,14 +3,34 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "schemawatch"
+name = "schemawatch-core"
 version = "0.1.0"
-description = "Open-source API contract drift monitor"
+description = "Pure Python engine for schema inference, diffing, PII redaction, drift severity classification, and sampling watchdog"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-authors = [{ name = "schemawatch contributors" }]
+license-files = ["LICENSE"]
+authors = [{ name = "Mohd Obaidullah" }]
+keywords = ["api", "schema", "drift", "contract-testing", "monitoring"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Mohd-obaidullah/schemawatch"
+Source = "https://github.com/Mohd-obaidullah/schemawatch"
+Issues = "https://github.com/Mohd-obaidullah/schemawatch/issues"
+Changelog = "https://github.com/Mohd-obaidullah/schemawatch/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 redis = ["redis>=5.0.0"]

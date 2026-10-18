@@ -63,7 +63,7 @@ def upgrade() -> None:
         sa.Column("now_value", sa.String(length=255), nullable=True),
         sa.Column("detail", sa.Text(), nullable=True),
         sa.Column("observed_schema_json", sa.Text(), nullable=True),
-        sa.Column("acknowledged", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("acknowledged", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("acknowledged_at", sa.DateTime(), nullable=True),
         sa.Column("detected_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(["endpoint_id"], ["endpoints.id"], ondelete="CASCADE"),

@@ -1,0 +1,53 @@
+services:
+  schemawatch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "on-failure:3"
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      # Compose environment variables take precedence over env_file (.env)
+      # PostgreSQL service URL is enforced here so SQLite in .env does not override it
+      - SCHEMAWATCH_DATABASE_URL=postgresql://${POSTGRES_USER:-schemawatch}:${POSTGRES_PASSWORD:-schemawatch_password}@postgres:5432/${POSTGRES_DB:-schemawatch}
+      - SCHEMAWATCH_DEV_MODE=${SCHEMAWATCH_DEV_MODE:-false}
+      - SCHEMAWATCH_API_TOKEN=${SCHEMAWATCH_API_TOKEN:?Set SCHEMAWATCH_API_TOKEN in .env (copy .env.example to .env, then see README "Quick start")}
+      - SCHEMAWATCH_LEARN_SAMPLES=${SCHEMAWATCH_LEARN_SAMPLES:-5}
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-schemawatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-schemawatch_password}
+      POSTGRES_DB: ${POSTGRES_DB:-schemawatch}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-schemawatch} -d ${POSTGRES_DB:-schemawatch}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles:
+      - redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

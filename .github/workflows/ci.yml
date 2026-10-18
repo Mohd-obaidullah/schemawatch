@@ -93,3 +93,29 @@ jobs:
 
       - name: Build Web Dashboard
         run: npm run build
+
+  docker-smoke:
+    name: Docker Compose Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
+
+      - name: Run safe environment setup
+        run: ./scripts/setup.sh
+
+      - name: Build and start Docker Compose stack
+        run: docker compose up --build -d
+
+      - name: Run automated smoke test
+        run: ./scripts/smoke-test.sh
+
+      - name: Inspect logs on failure
+        if: failure()
+        run: docker compose logs --tail 100
+
+      - name: Clean up Docker Compose
+        if: always()
+        run: docker compose down -v

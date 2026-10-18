@@ -204,17 +204,35 @@ def merge(node_a: SchemaNode, node_b: SchemaNode) -> SchemaNode:
 
     # Merge properties
     merged_properties: dict[str, SchemaNode] = {}
-    all_prop_keys = node_a.properties.keys() | node_b.properties.keys()
-    for prop in all_prop_keys:
-        if prop in node_a.properties and prop in node_b.properties:
-            merged_properties[prop] = merge(node_a.properties[prop], node_b.properties[prop])
-        elif prop in node_a.properties:
-            merged_properties[prop] = node_a.properties[prop]
-        else:
-            merged_properties[prop] = node_b.properties[prop]
+    if "object" in merged_types and (node_a.is_map or node_b.is_map):
+        merged_val: SchemaNode | None = None
+        for child in node_a.properties.values():
+            merged_val = merge(merged_val, child) if merged_val is not None else child
+        for child in node_b.properties.values():
+            merged_val = merge(merged_val, child) if merged_val is not None else child
 
-    # Required fields is the intersection across samples
-    merged_required = node_a.required & node_b.required
+        fallback = SchemaNode(types={"null"})
+        merged_properties[DYNAMIC_KEY_WILDCARD] = merged_val if merged_val is not None else fallback
+        merged_required: set[str] = set()
+        if (
+            node_a.is_map
+            and DYNAMIC_KEY_WILDCARD in node_a.required
+            and node_b.is_map
+            and DYNAMIC_KEY_WILDCARD in node_b.required
+        ):
+            merged_required.add(DYNAMIC_KEY_WILDCARD)
+    else:
+        all_prop_keys = node_a.properties.keys() | node_b.properties.keys()
+        for prop in all_prop_keys:
+            if prop in node_a.properties and prop in node_b.properties:
+                merged_properties[prop] = merge(node_a.properties[prop], node_b.properties[prop])
+            elif prop in node_a.properties:
+                merged_properties[prop] = node_a.properties[prop]
+            else:
+                merged_properties[prop] = node_b.properties[prop]
+
+        # Required fields is the intersection across samples
+        merged_required = node_a.required & node_b.required
 
     # Merge array items
     merged_items: SchemaNode | None = None

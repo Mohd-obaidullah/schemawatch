@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import logging
+import os
+import sys
 
 import uvicorn
 
@@ -15,9 +18,19 @@ def main() -> None:
     parser.add_argument("--dev", action="store_true", help="Run with dev mode and reload")
     args = parser.parse_args()
 
-    settings = Settings(dev_mode=args.dev or False)
     if args.dev:
-        settings.dev_mode = True
+        os.environ["SCHEMAWATCH_DEV_MODE"] = "true"
+
+    try:
+        settings = Settings()
+        settings.validate_token_requirement()
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger("schemawatch.api")
+    logger.info("Starting schemawatch API bound to %s:%d", args.host, args.port)
 
     uvicorn.run(
         "schemawatch_api.app:create_app",

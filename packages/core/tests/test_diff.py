@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from schemawatch.diff import Change, diff
 from schemawatch.infer import DYNAMIC_KEY_WILDCARD, SchemaNode, infer_schema, merge
 from schemawatch.severity import (
@@ -198,3 +200,93 @@ def test_diff_object_with_literal_asterisk_key_does_not_drift_from_itself() -> N
     schema = infer_schema(payload)
     changes = diff(schema, schema)
     assert changes == []
+
+
+def test_regression_literal_asterisk_key_variants() -> None:
+    """Fixed regression test verifying literal '*' key does not collide with wildcard map.
+
+    Covers:
+    - Exact payload: {'0': None, '*': False}
+    - Literal '*' alone: {'*': 123}, {'*': False}, {'*': None}
+    - Literal '*' next to nullable and non-nullable siblings
+    - Nested '*' keys
+    - Real dynamic-key map next to a literal '*' key
+    """
+    variants: list[dict[str, Any]] = [
+        # 1. Exact collision payload
+        {"0": None, "*": False},
+        # 2. Literal '*' alone
+        {"*": 123},
+        {"*": False},
+        {"*": None},
+        # 3. Literal '*' next to nullable and non-nullable siblings
+        {"*": 123, "nullable": None, "active": True, "name": "schemawatch"},
+        # 4. Nested '*' keys
+        {"*": {"*": 42, "sibling": "value"}, "nested": {"*": True}},
+        # 5. Real dynamic-key map next to a literal '*' key
+        {
+            "users_by_email": {
+                "alice@example.com": {"id": 1},
+                "bob@example.com": {"id": 2},
+                "carol@example.com": {"id": 3},
+            },
+            "*": "literal_star_value",
+        },
+    ]
+
+    for p in variants:
+        schema = infer_schema(p)
+        # Invariant 1: No self-drift
+        assert diff(schema, schema) == [], f"Self-drift detected for payload: {p}"
+        # Invariant 2: Self-merge is idempotent
+        assert merge(schema, schema) == schema, f"Self-merge failed for payload: {p}"
+        # Invariant 3: Serialization round-trip
+        serialized = schema.to_dict()
+        restored = SchemaNode.from_dict(serialized)
+        assert restored == schema, f"Serialization round-trip failed for payload: {p}"
+
+
+def test_literal_asterisk_key_drift_detection() -> None:
+    """Ensure legitimate changes to literal '*' keys are still detected accurately."""
+    base = infer_schema({"*": 100})
+    # Type changed on literal '*'
+    obs_type = infer_schema({"*": "not_an_int"})
+    changes = diff(base, obs_type)
+    assert len(changes) == 1
+    assert changes[0].field == "$.*"
+    assert changes[0].kind == KIND_TYPE_CHANGED
+
+    # Field missing on literal '*'
+    obs_missing = infer_schema({"other": 100})
+    changes = diff(base, obs_missing)
+    assert any(c.field == "$.*" and c.kind == KIND_FIELD_MISSING for c in changes)
+
+    # Field added for literal '*'
+    empty_base = infer_schema({"other": 100})
+    changes = diff(empty_base, base)
+    assert any(c.field == "$.*" and c.kind == KIND_FIELD_ADDED for c in changes)
+
+
+def test_merge_dynamic_map_with_literal_asterisk_object() -> None:
+    """Ensure merging dynamic maps with literal '*' objects maintains invariants."""
+    p_map = {
+        "user_1@test.com": 10,
+        "user_2@test.com": 20,
+        "user_3@test.com": 30,
+    }
+    p_star = {"*": 40}
+
+    s_map = infer_schema(p_map)
+    s_star = infer_schema(p_star)
+
+    # Commutative merge
+    merged_a = merge(s_map, s_star)
+    merged_b = merge(s_star, s_map)
+    assert merged_a == merged_b
+
+    # Merged dynamic map does not self-drift
+    assert diff(merged_a, merged_a) == []
+
+    # Roundtrip serialization
+    restored = SchemaNode.from_dict(merged_a.to_dict())
+    assert restored == merged_a
